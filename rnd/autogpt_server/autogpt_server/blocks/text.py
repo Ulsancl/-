@@ -1,13 +1,14 @@
 import re
 from typing import Any
 
-from jinja2 import BaseLoader, Environment
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from autogpt_server.data.block import Block, BlockCategory, BlockOutput, BlockSchema
 from autogpt_server.util import json
 
-jinja = Environment(loader=BaseLoader())
+jinja = SandboxedEnvironment(loader=BaseLoader())
 
 
 class MatchTextPatternBlock(Block):
