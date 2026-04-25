@@ -298,25 +298,22 @@ async def search_db(
     try:
         offset = (page - 1) * page_size
 
-        category_filter = ""
-        if categories:
-            category_conditions = [f"'{cat}' = ANY(categories)" for cat in categories]
-            category_filter = "AND (" + " OR ".join(category_conditions) + ")"
+        # Construct the ORDER BY clause from an allowlist.
+        normalized_sort_order = sort_order.lower()
+        if normalized_sort_order not in ["asc", "desc"]:
+            normalized_sort_order = "desc"
 
-        # Construct the ORDER BY clause based on the sort_by parameter
         if sort_by in ["createdAt", "updatedAt"]:
-            order_by_clause = f'"{sort_by}" {sort_order.upper()}, rank DESC'
+            order_by_clause = f'''"{sort_by}" {normalized_sort_order.upper()}, rank DESC'''
         elif sort_by == "name":
-            order_by_clause = f"name {sort_order.upper()}, rank DESC"
+            order_by_clause = f"""name {normalized_sort_order.upper()}, rank DESC"""
         else:
-            order_by_clause = 'rank DESC, "createdAt" DESC'
-
-        submission_status_filter = f""""submissionStatus" = '{submission_status}'"""
+            order_by_clause = '''rank DESC, "createdAt" DESC'''
 
         sql_query = f"""
         WITH query AS (
             SELECT to_tsquery(string_agg(lexeme || ':*', ' & ' ORDER BY positions)) AS q 
-            FROM unnest(to_tsvector('{query}'))
+            FROM unnest(to_tsvector($1))
         )
         SELECT 
             id, 
@@ -324,7 +321,7 @@ async def search_db(
             "updatedAt", 
             version, 
             name, 
-            LEFT(description, {description_threshold}) AS description, 
+            LEFT(description, $2) AS description, 
             author, 
             keywords, 
             categories, 
@@ -333,14 +330,28 @@ async def search_db(
             "submissionDate",
             ts_rank(CAST(search AS tsvector), query.q) AS rank
         FROM "Agents", query
-        WHERE 1=1 {category_filter} AND {submission_status_filter}
+        WHERE "submissionStatus" = $3
+            AND (
+                $4::text[] IS NULL
+                OR EXISTS (
+                    SELECT 1
+                    FROM unnest($4::text[]) AS requested_category
+                    WHERE requested_category = ANY("Agents".categories)
+                )
+            )
         ORDER BY {order_by_clause}
-        LIMIT {page_size}
-        OFFSET {offset};
+        LIMIT $5
+        OFFSET $6;
         """
 
         results = await prisma.client.get_client().query_raw(
-            query=sql_query,
+            sql_query,
+            query,
+            description_threshold,
+            str(submission_status),
+            categories,
+            page_size,
+            offset,
             model=market.utils.extension_types.AgentsWithRank,
         )
 
