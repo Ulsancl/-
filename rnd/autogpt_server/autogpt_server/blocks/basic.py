@@ -1,7 +1,8 @@
 import re
 from typing import Any, List
 
-from jinja2 import BaseLoader, Environment
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from autogpt_server.data.block import (
@@ -14,7 +15,7 @@ from autogpt_server.data.block import (
 from autogpt_server.data.model import SchemaField
 from autogpt_server.util.mock import MockObject
 
-jinja = Environment(loader=BaseLoader())
+jinja = SandboxedEnvironment(loader=BaseLoader())
 
 
 class StoreValueBlock(Block):
