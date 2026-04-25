@@ -9,10 +9,6 @@ from autogpt_server.data.model import BlockSecret, SchemaField, SecretField
 
 
 class EmailCredentials(BaseModel):
-    smtp_server: str = Field(
-        default="smtp.gmail.com", description="SMTP server address"
-    )
-    smtp_port: int = Field(default=25, description="SMTP port number")
     smtp_username: BlockSecret = SecretField(key="smtp_username")
     smtp_password: BlockSecret = SecretField(key="smtp_password")
 
@@ -53,8 +49,6 @@ class SendEmailBlock(Block):
                 "subject": "Test Email",
                 "body": "This is a test email.",
                 "creds": {
-                    "smtp_server": "smtp.gmail.com",
-                    "smtp_port": 25,
                     "smtp_username": "your-email@gmail.com",
                     "smtp_password": "your-gmail-password",
                 },
@@ -68,8 +62,8 @@ class SendEmailBlock(Block):
         creds: EmailCredentials, to_email: str, subject: str, body: str
     ) -> str:
         try:
-            smtp_server = creds.smtp_server
-            smtp_port = creds.smtp_port
+            smtp_server = BlockSecret(key="smtp_server").get_secret_value()
+            smtp_port = int(BlockSecret(key="smtp_port").get_secret_value())
             smtp_username = creds.smtp_username.get_secret_value()
             smtp_password = creds.smtp_password.get_secret_value()
 
