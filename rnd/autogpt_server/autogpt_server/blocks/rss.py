@@ -1,6 +1,9 @@
+import ipaddress
+import socket
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 import feedparser
 import pydantic
@@ -83,8 +86,43 @@ class ReadRSSFeedBlock(Block):
         )
 
     @staticmethod
+    def validate_rss_url(url: str) -> str:
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in {"http", "https"}:
+            raise ValueError("Only http and https URLs are allowed.")
+
+        hostname = parsed_url.hostname
+        if not hostname:
+            raise ValueError("RSS URL must include a valid host.")
+
+        if hostname == "localhost" or hostname.endswith(".localhost"):
+            raise ValueError("RSS URL host is not allowed.")
+
+        try:
+            ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            ip = None
+
+        if ip is not None:
+            if not ip.is_global:
+                raise ValueError("RSS URL host is not allowed.")
+            return url
+
+        try:
+            addresses = socket.getaddrinfo(hostname, None)
+        except socket.gaierror as exc:
+            raise ValueError("Unable to resolve RSS URL host.") from exc
+
+        for _, _, _, _, sockaddr in addresses:
+            resolved_ip = ipaddress.ip_address(sockaddr[0])
+            if not resolved_ip.is_global:
+                raise ValueError("RSS URL host is not allowed.")
+
+        return url
+
+    @staticmethod
     def parse_feed(url: str) -> dict[str, Any]:
-        return feedparser.parse(url)  # type: ignore
+        return feedparser.parse(ReadRSSFeedBlock.validate_rss_url(url))  # type: ignore
 
     def run(self, input_data: Input) -> BlockOutput:
         keep_going = True
