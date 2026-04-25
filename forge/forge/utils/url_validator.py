@@ -1,4 +1,5 @@
 import functools
+import ipaddress
 import re
 from inspect import signature
 from typing import Callable, ParamSpec, TypeVar
@@ -73,18 +74,30 @@ def sanitize_url(url: str) -> str:
 
 
 def check_local_file_access(url: str) -> bool:
-    """Check if the URL is a local file
+    """Check if the URL points to local resources.
 
     Args:
         url (str): The URL to check
 
     Returns:
-        bool: True if the URL is a local file, False otherwise
+        bool: True if the URL targets a local/loopback resource, False otherwise
     """
-    # List of local file prefixes
-    local_file_prefixes = [
-        "file:///",
-        "file://localhost",
-    ]
+    local_file_prefixes = ["file:///", "file://localhost"]
+    if any(url.startswith(prefix) for prefix in local_file_prefixes):
+        return True
 
-    return any(url.startswith(prefix) for prefix in local_file_prefixes)
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+
+    local_hostnames = {"localhost", "0.0.0.0", "2130706433", "0000"}
+    if hostname in local_hostnames:
+        return True
+
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+
+    return ip.is_loopback or ip.is_unspecified
