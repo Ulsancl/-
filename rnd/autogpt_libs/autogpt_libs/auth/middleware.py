@@ -14,6 +14,9 @@ async def auth_middleware(request: Request):
         # If authentication is disabled, allow the request to proceed
         logging.warn("Auth disabled")
         return {}
+    if not settings.is_configured:
+        logging.error("Auth is enabled but SUPABASE_JWT_SECRET is not configured")
+        raise HTTPException(status_code=500, detail="Authentication is misconfigured")
 
     security = HTTPBearer()
     credentials = await security(request)
