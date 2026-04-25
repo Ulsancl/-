@@ -50,6 +50,20 @@ def test_url_validation_fails_local_path(url):
         dummy_method(url)
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:8888",
+        "http://127.0.0.1:8000",
+        "http://0.0.0.0:3000",
+        "http://[::1]:5000",
+    ],
+)
+def test_url_validation_fails_localhost_and_loopback(url):
+    with raises(ValueError, match="Access to local files is restricted"):
+        dummy_method(url)
+
+
 def test_happy_path_valid_url():
     """
     Test that the function successfully validates a valid URL with `http://` or
