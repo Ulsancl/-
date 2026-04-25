@@ -251,7 +251,7 @@ class FileSyncHandler(FileSystemEventHandler):
             return
 
         file_path = Path(event.src_path).relative_to(self.path)
-        content = file_path.read_bytes()
+        content = (self.path / file_path).read_bytes()
         # Must execute write_file synchronously because the hook is synchronous
         # TODO: Schedule write operation using asyncio.create_task (non-blocking)
         asyncio.get_event_loop().run_until_complete(
@@ -264,7 +264,7 @@ class FileSyncHandler(FileSystemEventHandler):
             return
 
         file_path = Path(event.src_path).relative_to(self.path)
-        content = file_path.read_bytes()
+        content = (self.path / file_path).read_bytes()
         # Must execute write_file synchronously because the hook is synchronous
         # TODO: Schedule write operation using asyncio.create_task (non-blocking)
         asyncio.get_event_loop().run_until_complete(

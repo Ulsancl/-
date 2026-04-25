@@ -1,7 +1,10 @@
+import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from .base import FileSyncHandler
 from .local import FileStorageConfiguration, LocalFileStorage
 
 _ACCESSIBLE_PATHS = [
@@ -209,3 +212,31 @@ async def test_copy_dir(storage: LocalFileStorage):
     storage.copy("dir", "dir_copy")
     assert storage.read_file("dir_copy/test_file.txt") == "test content"
     assert storage.read_file("dir_copy/sub_dir/test_file.txt") == "test content"
+
+
+def test_file_sync_handler_reads_from_mount_path(
+    storage: LocalFileStorage, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Regression test for mount sync reading files from CWD."""
+    monkeypatch.chdir(tmp_path)
+
+    host_secret_file = tmp_path / ".env"
+    host_secret_file.write_text("HOST_SECRET")
+
+    mount_path = tmp_path / "mount"
+    mount_path.mkdir()
+    mounted_file = mount_path / ".env"
+    mounted_file.write_text("ATTACKER")
+
+    handler = FileSyncHandler(storage, mount_path)
+    event = SimpleNamespace(is_directory=False, src_path=str(mounted_file))
+
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        handler.on_modified(event)
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
+
+    assert storage.read_file(".env") == "ATTACKER"
