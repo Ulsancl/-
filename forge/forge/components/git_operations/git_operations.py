@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Iterator, Optional
+from urllib.parse import urlparse
 
 from git.repo import Repo
 from pydantic import BaseModel, SecretStr
@@ -11,6 +12,8 @@ from forge.models.config import UserConfigurable
 from forge.models.json_schema import JSONSchema
 from forge.utils.exceptions import CommandExecutionError
 from forge.utils.url_validator import validate_url
+
+ALLOWED_GITHUB_CLONE_HOSTS = {"github.com", "www.github.com"}
 
 
 class GitOperationsConfiguration(BaseModel):
@@ -60,6 +63,12 @@ class GitOperationsComponent(
         Returns:
             str: The result of the clone operation.
         """
+        parsed_url = urlparse(url)
+        if parsed_url.hostname not in ALLOWED_GITHUB_CLONE_HOSTS:
+            raise CommandExecutionError(
+                "Could not clone repo: URL host must be github.com"
+            )
+
         split_url = url.split("//")
         api_key = (
             self.config.github_api_key.get_secret_value()

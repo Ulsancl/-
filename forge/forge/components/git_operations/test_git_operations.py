@@ -55,3 +55,17 @@ def test_clone_repository_error(
 
     with pytest.raises(CommandExecutionError):
         git_ops_component.clone_repository(url, clone_path)
+
+
+def test_clone_repository_rejects_non_github_host(
+    git_ops_component: GitOperationsComponent,
+    storage: FileStorage,
+    mock_clone_from,
+):
+    url = "https://evil.example/this-repository/does-not-exist.git"
+    clone_path = storage.get_path("does-not-exist")
+
+    with pytest.raises(CommandExecutionError, match="URL host must be github.com"):
+        git_ops_component.clone_repository(url, clone_path)
+
+    mock_clone_from.assert_not_called()
